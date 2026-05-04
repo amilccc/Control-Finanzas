@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Financial OS Quincenal - Amilcar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+        .nav-btn.active { color: #38bdf8; background: rgba(56, 189, 248, 0.1); border-radius: 1rem; }
+        .quin-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: 800; }
+        input, select { font-size: 16px !important; }
+    </style>
+</head>
+<body class="pb-32">
+
+    <!-- HEADER CON MEMORIA -->
+    <header class="p-5 sticky top-0 glass z-50 flex justify-between items-center border-b border-slate-800">
+        <div class="flex gap-2">
+            <select id="year-selector" onchange="updatePeriod('year', this.value)" class="bg-slate-800 text-xs font-bold p-2 rounded-lg border-none outline-none">
+                <option value="2026">2026</option><option value="2027">2027</option>
+            </select>
+            <select id="month-selector" onchange="updatePeriod('month', this.value)" class="bg-slate-800 text-xs font-bold p-2 rounded-lg border-none outline-none">
+                <option value="01">Ene</option><option value="02">Feb</option><option value="03">Mar</option>
+                <option value="04">Abr</option><option value="05">May</option><option value="06">Jun</option>
+                <option value="07">Jul</option><option value="08">Ago</option><option value="09">Sep</option>
+                <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option>
+            </select>
+        </div>
+        <div class="text-right">
+            <p id="top-net-total" class="text-xl font-mono font-bold text-emerald-400">Q 0.00</p>
+            <p class="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Saldo Neto</p>
+        </div>
+    </header>
+
+    <main class="px-4 mt-6">
+        
+        <!-- DASHBOARD -->
+        <section id="dashboard" class="tab-content active">
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="glass p-4 rounded-3xl">
+                    <p class="text-[10px] text-slate-500 uppercase font-bold">Bancos</p>
+                    <p id="dash-bank" class="text-lg font-bold text-sky-400">Q 0</p>
+                </div>
+                <div class="glass p-4 rounded-3xl">
+                    <p class="text-[10px] text-slate-500 uppercase font-bold">Efectivo</p>
+                    <p id="dash-cash" class="text-lg font-bold text-yellow-400">Q 0</p>
+                </div>
+            </div>
+
+            <div class="glass p-6 rounded-[2.5rem] mb-6 border border-rose-500/20">
+                <p class="text-xs text-slate-400 mb-1">Pendiente por pagar (Mes)</p>
+                <h2 id="dash-pending-total" class="text-4xl font-black text-rose-500">Q 0.00</h2>
+                <div class="flex gap-2 mt-2">
+                    <span id="dash-pending-q1" class="text-[9px] bg-rose-500/10 text-rose-400 px-2 py-1 rounded">Q1: Q0</span>
+                    <span id="dash-pending-q2" class="text-[9px] bg-rose-500/10 text-rose-400 px-2 py-1 rounded">Q2: Q0</span>
+                </div>
+            </div>
+
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Cuentas y Tarjetas</h3>
+            <div id="accounts-list" class="space-y-3"></div>
+        </section>
+
+        <!-- PAGOS QUINCENALES -->
+        <section id="real-budget" class="tab-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">Plan Quincenal</h3>
+                <button onclick="syncIdealToReal()" class="text-[10px] bg-sky-500/20 text-sky-400 px-3 py-2 rounded-lg font-bold uppercase">Importar Maestro</button>
+            </div>
+
+            <!-- REGISTRO RÁPIDO -->
+            <div class="glass p-5 rounded-[2rem] mb-8 border border-sky-500/20">
+                <p class="text-[10px] font-bold text-sky-400 uppercase mb-4 text-center">Nuevo Gasto Directo</p>
+                <div class="space-y-3">
+                    <input type="text" id="manual-pay-name" placeholder="¿Qué compraste?" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm">
+                    <div class="flex gap-2">
+                        <input type="number" id="manual-pay-amount" placeholder="Monto Q" class="w-1/2 bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm">
+                        <select id="manual-pay-quin" class="w-1/2 bg-slate-900 border border-slate-700 rounded-xl p-4 text-xs font-bold">
+                            <option value="1">1ra Quincena</option>
+                            <option value="2">2da Quincena</option>
+                        </select>
+                    </div>
+                    <select id="manual-pay-source" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-xs font-bold text-sky-300"></select>
+                    <button onclick="addManualPayment()" class="w-full bg-rose-600 py-4 rounded-xl font-bold">Registrar y Descontar</button>
+                </div>
+            </div>
+
+            <div id="real-list-q1" class="space-y-3 mb-8">
+                <h4 class="text-[10px] text-slate-500 font-black uppercase mb-2 ml-2 tracking-widest">1ra Quincena (1-15)</h4>
+            </div>
+            <div id="real-list-q2" class="space-y-3">
+                <h4 class="text-[10px] text-slate-500 font-black uppercase mb-2 ml-2 tracking-widest">2da Quincena (16-31)</h4>
+            </div>
+        </section>
+
+        <!-- METAS -->
+        <section id="goals" class="tab-content">
+            <h3 class="text-xl font-bold mb-6 italic">Ahorros y Metas</h3>
+            <div id="goals-list" class="space-y-4 mb-8"></div>
+            <div class="glass p-6 rounded-[2rem] border border-slate-700">
+                <p class="text-xs font-bold mb-4 uppercase text-slate-500">Nueva Meta</p>
+                <input type="text" id="goal-name" placeholder="Nombre" class="w-full bg-slate-900 p-4 rounded-xl mb-3">
+                <input type="number" id="goal-target" placeholder="Meta Final Q" class="w-full bg-slate-900 p-4 rounded-xl mb-3">
+                <button onclick="saveGoal()" class="w-full bg-sky-600 py-4 rounded-xl font-bold">Crear Objetivo</button>
+            </div>
+        </section>
+
+        <!-- CONFIG / MAESTRO -->
+        <section id="settings" class="tab-content">
+            <div class="space-y-6">
+                <!-- Cuentas -->
+                <div class="glass p-6 rounded-[2rem]">
+                    <h3 class="font-bold mb-4">Nueva Cuenta</h3>
+                    <input type="text" id="new-acc-name" placeholder="Nombre" class="w-full bg-slate-900 p-4 rounded-xl mb-3">
+                    <select id="new-acc-type" class="w-full bg-slate-900 p-4 rounded-xl mb-3">
+                        <option value="banco">Banco</option><option value="efectivo">Efectivo</option><option value="pasivo">Tarjeta</option>
+                    </select>
+                    <button onclick="saveAccount()" class="w-full bg-sky-600 py-4 rounded-xl font-bold">Agregar</button>
+                </div>
+                <!-- Maestro -->
+                <div class="glass p-6 rounded-[2rem]">
+                    <h3 class="font-bold mb-4">Maestro Quincenal</h3>
+                    <div id="settings-ideal-list" class="space-y-2 mb-6"></div>
+                    <div class="space-y-3">
+                        <input type="text" id="set-ideal-name" placeholder="Gasto fijo" class="w-full bg-slate-900 p-3 rounded-xl">
+                        <div class="flex gap-2">
+                            <input type="number" id="set-ideal-val" placeholder="Q" class="w-1/2 bg-slate-900 p-3 rounded-xl">
+                            <select id="set-ideal-quin" class="w-1/2 bg-slate-900 p-3 rounded-xl">
+                                <option value="1">Q1 (1-15)</option><option value="2">Q2 (16-31)</option>
+                            </select>
+                        </div>
+                        <button onclick="addIdealItem()" class="w-full bg-emerald-600 py-3 rounded-xl font-bold">Sumar al Maestro</button>
+                    </div>
+                </div>
+                <button onclick="resetAll()" class="w-full text-rose-500 opacity-30 text-[10px] font-bold py-10">BORRAR TODO</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- NAV -->
+    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-slate-800 flex justify-around p-3 pb-8">
+        <button onclick="showTab('dashboard')" class="nav-btn p-3 flex flex-col items-center active w-1/4"><span class="text-xl">📊</span><span class="text-[9px] font-bold mt-1">Dash</span></button>
+        <button onclick="showTab('real-budget')" class="nav-btn p-3 flex flex-col items-center w-1/4"><span class="text-xl">💸</span><span class="text-[9px] font-bold mt-1">Pagos</span></button>
+        <button onclick="showTab('goals')" class="nav-btn p-3 flex flex-col items-center w-1/4"><span class="text-xl">🎯</span><span class="text-[9px] font-bold mt-1">Metas</span></button>
+        <button onclick="showTab('settings')" class="nav-btn p-3 flex flex-col items-center w-1/4"><span class="text-xl">⚙️</span><span class="text-[9px] font-bold mt-1">Conf</span></button>
+    </nav>
+
+    <script>
+        // --- MOTOR DE PERSISTENCIA Y MEMORIA ---
+        let db = JSON.parse(localStorage.getItem('amilcar_quin_v1')) || {
+            accounts: [{name:"Efectivo", type:"efectivo", balance:0}],
+            ledger: {},
+            ideal: [],
+            goals: []
+        };
+
+        // Recuperar último mes visitado
+        let currentYear = localStorage.getItem('last_year') || "2026";
+        let currentMonth = localStorage.getItem('last_month') || "05";
+
+        function updatePeriod(type, val) {
+            if(type === 'year') { currentYear = val; localStorage.setItem('last_year', val); }
+            if(type === 'month') { currentMonth = val; localStorage.setItem('last_month', val); }
+            render();
+        }
+
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
+            render();
+        }
+
+        // --- LÓGICA CONTABLE ---
+        function addManualPayment() {
+            const name = document.getElementById('manual-pay-name').value;
+            const amount = parseFloat(document.getElementById('manual-pay-amount').value);
+            const sourceIdx = document.getElementById('manual-pay-source').value;
+            const quin = document.getElementById('manual-pay-quin').value;
+            const key = `${currentYear}-${currentMonth}`;
+
+            if(!name || isNaN(amount) || sourceIdx === "") return alert("Faltan datos");
+
+            db.accounts[sourceIdx].balance -= amount;
+            if(!db.ledger[key]) db.ledger[key] = [];
+            db.ledger[key].push({ name, ideal: amount, paid: true, source: db.accounts[sourceIdx].name, quin: parseInt(quin) });
+            
+            document.getElementById('manual-pay-name').value = '';
+            document.getElementById('manual-pay-amount').value = '';
+            render();
+        }
+
+        function markPaid(idx) {
+            const key = `${currentYear}-${currentMonth}`;
+            const item = db.ledger[key][idx];
+            if(item.paid) return;
+
+            const sIdx = prompt(`¿Con qué pagas Q${item.ideal}?\n` + db.accounts.map((a,i)=>`${i}: ${a.name} (Q${a.balance})`).join('\n'));
+            if(sIdx !== null && db.accounts[sIdx]) {
+                db.accounts[sIdx].balance -= item.ideal;
+                item.paid = true;
+                item.source = db.accounts[sIdx].name;
+                render();
+            }
+        }
+
+        // --- RENDER ---
+        function render() {
+            const key = `${currentYear}-${currentMonth}`;
+            document.getElementById('year-selector').value = currentYear;
+            document.getElementById('month-selector').value = currentMonth;
+
+            let net = 0, bank = 0, cash = 0, pQ1 = 0, pQ2 = 0;
+            
+            // Cuentas
+            const accList = document.getElementById('accounts-list');
+            const manualSource = document.getElementById('manual-pay-source');
+            accList.innerHTML = ''; manualSource.innerHTML = '<option value="">¿Con qué pagas?</option>';
+
+            db.accounts.forEach((acc, i) => {
+                net += (acc.type === 'pasivo' ? -acc.balance : acc.balance);
+                if(acc.type === 'banco') bank += acc.balance;
+                if(acc.type === 'efectivo') cash += acc.balance;
+                accList.innerHTML += `<div class="glass p-4 rounded-2xl flex justify-between border-l-4 ${acc.type==='pasivo'?'border-rose-500':'border-emerald-500'}">
+                    <span class="font-bold text-sm">${acc.name}</span><span class="font-mono font-bold">Q ${acc.balance.toFixed(2)}</span>
+                </div>`;
+                manualSource.innerHTML += `<option value="${i}">${acc.name} (Q${acc.balance.toFixed(0)})</option>`;
+            });
+
+            // Dashboard Totales
+            if(db.ledger[key]) {
+                db.ledger[key].forEach(it => {
+                    if(!it.paid) { if(it.quin === 1) pQ1 += it.ideal; else pQ2 += it.ideal; }
+                });
+            }
+            document.getElementById('top-net-total').innerText = `Q ${net.toFixed(2)}`;
+            document.getElementById('dash-bank').innerText = `Q ${bank.toFixed(2)}`;
+            document.getElementById('dash-cash').innerText = `Q ${cash.toFixed(2)}`;
+            document.getElementById('dash-pending-total').innerText = `Q ${(pQ1+pQ2).toFixed(2)}`;
+            document.getElementById('dash-pending-q1').innerText = `Q1: Q${pQ1.toFixed(2)}`;
+            document.getElementById('dash-pending-q2').innerText = `Q2: Q${pQ2.toFixed(2)}`;
+
+            // Listas de Pagos Quincenales
+            const listQ1 = document.getElementById('real-list-q1');
+            const listQ2 = document.getElementById('real-list-q2');
+            listQ1.innerHTML = '<h4 class="text-[10px] text-slate-500 font-black uppercase mb-2 ml-2">1ra Quincena</h4>';
+            listQ2.innerHTML = '<h4 class="text-[10px] text-slate-500 font-black uppercase mb-2 ml-2">2da Quincena</h4>';
+
+            if(db.ledger[key]) {
+                db.ledger[key].forEach((item, i) => {
+                    const html = `
+                        <div onclick="markPaid(${i})" class="glass p-4 rounded-2xl flex items-center justify-between ${item.paid?'opacity-40':'border-slate-700'}">
+                            <div class="flex items-center gap-3">
+                                <div class="w-6 h-6 rounded-lg flex items-center justify-center ${item.paid?'bg-emerald-500':'bg-slate-800'} text-[10px] font-bold">
+                                    ${item.paid ? '✓' : 'Q'}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-xs">${item.name}</p>
+                                    <p class="text-[8px] text-slate-500 uppercase">${item.paid ? 'Pagado: ' + item.source : 'Pendiente'}</p>
+                                </div>
+                            </div>
+                            <p class="font-mono font-bold text-xs">Q ${item.ideal.toFixed(2)}</p>
+                        </div>`;
+                    if(item.quin === 1) listQ1.innerHTML += html; else listQ2.innerHTML += html;
+                });
+            }
+
+            // Metas
+            const goalsList = document.getElementById('goals-list');
+            goalsList.innerHTML = '';
+            db.goals.forEach((g, i) => {
+                const pct = Math.min((g.current / g.target) * 100, 100);
+                goalsList.innerHTML += `<div class="glass p-4 rounded-2xl" onclick="addMoneyGoal(${i})">
+                    <div class="flex justify-between text-xs mb-2"><span>${g.name}</span><span class="font-bold">Q ${g.current} / ${g.target}</span></div>
+                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden"><div class="bg-sky-500 h-full" style="width:${pct}%"></div></div>
+                </div>`;
+            });
+
+            // Maestro
+            const idealSet = document.getElementById('settings-ideal-list');
+            idealSet.innerHTML = '';
+            db.ideal.forEach((item, i) => {
+                idealSet.innerHTML += `<div class="flex justify-between text-[10px] bg-slate-900 p-2 rounded-lg border border-slate-800">
+                    <span>Q${item.quin} | ${item.name} - Q${item.val}</span>
+                    <button onclick="removeIdeal(${i})" class="text-rose-500 font-bold">ELIMINAR</button>
+                </div>`;
+            });
+
+            localStorage.setItem('amilcar_quin_v1', JSON.stringify(db));
+        }
+
+        // --- HELPERS ---
+        function syncIdealToReal() {
+            const key = `${currentYear}-${currentMonth}`;
+            if(!db.ledger[key]) db.ledger[key] = [];
+            db.ideal.forEach(item => {
+                if(!db.ledger[key].find(l => l.name === item.name)) db.ledger[key].push({ ...item, ideal: item.val, paid: false });
+            });
+            render();
+        }
+        function saveAccount() {
+            const name = document.getElementById('new-acc-name').value;
+            const type = document.getElementById('new-acc-type').value;
+            if(name) { db.accounts.push({ name, type, balance: 0 }); render(); }
+        }
+        function saveGoal() {
+            const name = document.getElementById('goal-name').value;
+            const target = parseFloat(document.getElementById('goal-target').value);
+            if(name && !isNaN(target)) { db.goals.push({ name, target, current: 0 }); render(); }
+        }
+        function addMoneyGoal(idx) {
+            const val = parseFloat(prompt("¿Monto a ahorrar?"));
+            if(!isNaN(val)) {
+                const s = prompt("¿De qué cuenta sale?\n" + db.accounts.map((a,i)=>`${i}: ${a.name}`).join('\n'));
+                if(db.accounts[s]) { db.accounts[s].balance -= val; db.goals[idx].current += val; render(); }
+            }
+        }
+        function addIdealItem() {
+            const name = document.getElementById('set-ideal-name').value;
+            const val = parseFloat(document.getElementById('set-ideal-val').value);
+            const quin = parseInt(document.getElementById('set-ideal-quin').value);
+            if(name && !isNaN(val)) { db.ideal.push({ name, val, quin }); render(); }
+        }
+        function removeIdeal(i) { db.ideal.splice(i, 1); render(); }
+        function resetAll() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
+
+        render();
+    </script>
+</body>
+</html>
